@@ -1,0 +1,16 @@
+9.15.5
+registry=https://registry.npmjs.org/
+user-agent=pnpm/9.15.5 npm/? node/v22.14.0 darwin x64
+writable: yes
+total 48
+drwxr-xr-x@ 11 marksylvester  staff   352 Jan 28 14:04 .
+drwxr-xr-x@  9 marksylvester  staff   288 Jan 28 12:07 ..
+-rw-r--r--@  1 marksylvester  staff  6148 Jan 28 12:07 .DS_Store
+drwxr-xr-x  12 marksylvester  staff   384 Jan 28 13:58 .git
+-rw-r--r--   1 marksylvester  staff    48 Jan 28 12:21 .gitignore
+-rw-r--r--   1 marksylvester  staff   112 Jan 28 14:04 PROOF__pnpm_diagnostics.txt
+drwxr-xr-x@  5 marksylvester  staff   160 Jan 28 12:07 lib
+-rw-r--r--@  1 marksylvester  staff   118 Jan 28 12:07 next.config.js
+drwxr-xr-x   3 marksylvester  staff    96 Jan 28 13:58 node_modules
+-rw-r--r--@  1 marksylvester  staff   501 Jan 28 13:58 package.json
+drwxr-xr-x@  6 marksylvester  staff   192 Jan 28 12:07 pages
