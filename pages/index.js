@@ -1,4 +1,5 @@
 import { useSession, signIn, signOut } from "next-auth/react";
+import ModelSwitcher from "../src/components/ModelSwitcher";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -21,6 +22,7 @@ export default function Home() {
               <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">BBG Human Outreach — V1 Dashboard (Stub UI)</h1>
               <p className="text-sm text-slate-600">Fail-safe defaults: kill-switch ON + dry-run ON.</p>
             </div>
+            <ModelSwitcher />
             {session ? (
               <div className="stack">
                 <p className="text-sm">

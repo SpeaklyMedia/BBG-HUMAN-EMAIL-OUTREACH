@@ -1,5 +1,6 @@
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
+import ModelSwitcher from "../src/components/ModelSwitcher";
 
 async function postJson(url, body) {
   const res = await fetch(url, {
@@ -67,6 +68,8 @@ export default function Dashboard() {
                 <button className="btn" onClick={() => signOut()}>Sign out</button>
               </div>
             </div>
+
+            <ModelSwitcher />
 
             <p className="text-sm text-slate-600">Note: Apps Script enforces dry-run by default even if the UI forgets.</p>
 
