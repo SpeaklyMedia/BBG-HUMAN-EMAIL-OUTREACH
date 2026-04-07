@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { isAllowed } from "../../../lib/rbac";
+import { isAdmin, isAllowed, isViewer } from "../../../lib/rbac";
 
 export const authOptions = {
   providers: [
@@ -15,6 +15,10 @@ export const authOptions = {
       return isAllowed(email);
     },
     async session({ session }) {
+      const email = (session?.user?.email || "").toLowerCase();
+      if (session?.user) {
+        session.user.role = isAdmin(email) ? "admin" : isViewer(email) ? "viewer" : "unknown";
+      }
       return session;
     }
   },

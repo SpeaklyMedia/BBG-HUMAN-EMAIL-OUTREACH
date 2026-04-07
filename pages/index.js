@@ -1,5 +1,4 @@
 import { useSession, signIn, signOut } from "next-auth/react";
-import ModelSwitcher from "../src/components/ModelSwitcher";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -15,14 +14,20 @@ export default function Home() {
   return (
     <div className="page-shell">
       <div className="container-main stack">
-        <div className="card">
+        <div className="hero-panel">
           <div className="card-body stack">
             <div className="stack">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Web App</p>
-              <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">BBG Human Outreach — V1 Dashboard (Stub UI)</h1>
-              <p className="text-sm text-slate-600">Fail-safe defaults: kill-switch ON + dry-run ON.</p>
+              <p className="eyebrow">Human Email Outreach Hybrid</p>
+              <h1 className="hero-title">BBG safe-mode outreach control plane</h1>
+              <p className="hero-copy">
+                Tokenized operator shell for the confirmed Apps Script contract. The runtime stays fail-closed while the interface now follows the approved brand-agnostic visual language.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="app-chip">Create → Preview → Confirm</span>
+                <span className="app-chip">KILL_SWITCH=1</span>
+                <span className="app-chip">DEFAULT_DRY_RUN=1</span>
+              </div>
             </div>
-            <ModelSwitcher />
             {session ? (
               <div className="stack">
                 <p className="text-sm">
