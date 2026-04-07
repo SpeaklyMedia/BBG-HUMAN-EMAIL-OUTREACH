@@ -1,4 +1,5 @@
 import { requireAdmin } from "../../../lib/apiAuth";
+import { sendAppsScriptResult } from "../../../lib/apiUpstream";
 import { callAppsScript } from "../../../lib/appsScriptClient";
 
 export default async function handler(req, res) {
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
       operator_email: session.user.email,
       payload: { run_id }
     });
-    if (!data?.ok) return res.status(200).json(data);
+    if (!data?.ok) return sendAppsScriptResult(res, data, { path: "/api/exports/run" });
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     return res.status(200).send(data.csv || "");
   } catch (e) {

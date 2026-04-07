@@ -25,9 +25,12 @@ export type SignedEnvelope<TPayload> = {
 
 export type AppsScriptErrorResponse = {
   ok: false;
-  error: "exception" | "unknown_route";
+  error: string;
   message?: string;
   route?: string;
+  status?: number;
+  raw?: string;
+  request_id?: string;
 };
 
 export type AppsScriptNonJsonError = {

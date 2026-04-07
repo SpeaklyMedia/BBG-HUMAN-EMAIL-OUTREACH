@@ -1,4 +1,5 @@
 import { requireAdmin } from "../../../lib/apiAuth";
+import { sendAppsScriptResult } from "../../../lib/apiUpstream";
 import { createRun } from "../../../services/runs";
 
 export default async function handler(req, res) {
@@ -8,7 +9,7 @@ export default async function handler(req, res) {
 
   try {
     const data = await createRun(session.user.email, req.body || {});
-    return res.status(200).json(data);
+    return sendAppsScriptResult(res, data, { path: "/api/runs/create" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || String(e) });
   }

@@ -1,4 +1,5 @@
 import { requireViewerOrAdmin } from "../../../lib/apiAuth";
+import { sendAppsScriptResult } from "../../../lib/apiUpstream";
 import { listRuns } from "../../../services/runs";
 
 export default async function handler(req, res) {
@@ -8,7 +9,7 @@ export default async function handler(req, res) {
 
   try {
     const data = await listRuns(session.user.email);
-    return res.status(200).json(data);
+    return sendAppsScriptResult(res, data, { path: "/api/runs/list" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || String(e) });
   }

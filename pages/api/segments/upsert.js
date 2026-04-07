@@ -1,4 +1,5 @@
 import { requireAdmin } from "../../../lib/apiAuth";
+import { sendAppsScriptResult } from "../../../lib/apiUpstream";
 import { callAppsScript } from "../../../lib/appsScriptClient";
 
 export default async function handler(req, res) {
@@ -12,7 +13,7 @@ export default async function handler(req, res) {
       operator_email: session.user.email,
       payload: req.body || {}
     });
-    return res.status(200).json(data);
+    return sendAppsScriptResult(res, data, { path: "/api/segments/upsert" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message || String(e) });
   }
