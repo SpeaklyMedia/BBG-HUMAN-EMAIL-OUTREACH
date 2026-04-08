@@ -288,6 +288,17 @@ test("setupWorkbook creates required sheets and headers", () => {
   assert.equal(sheetRows(spreadsheet, "TEMPLATES")[0][0], "template_id");
 });
 
+test("setupWorkbook seeds default wave2 segment and template", () => {
+  const { context, spreadsheet } = createHarness();
+  context.setupWorkbook_();
+
+  assert.equal(sheetRows(spreadsheet, "SEGMENTS")[1][0], "segment_default");
+  assert.equal(sheetRows(spreadsheet, "SEGMENTS")[1][1], "Default");
+  assert.equal(sheetRows(spreadsheet, "TEMPLATES")[1][0], "wave2_update");
+  assert.equal(sheetRows(spreadsheet, "TEMPLATES")[1][1], "v1");
+  assert.equal(sheetRows(spreadsheet, "TEMPLATES")[1][3], "{{WAVE2_SPIN_BODY}}");
+});
+
 test("canonical signing matches Node HMAC expectation", () => {
   const { context } = createHarness();
   const sig = context.computeSignatureHex_("/health", 1711987200000, "nonce", "ADMIN@example.com", "req1", "body");
@@ -325,6 +336,68 @@ test("confirm requires template existence", () => {
     () => context.confirmRun_("admin@example.com", { run_id: "run_1", confirmation_text: "CONFIRM R1" }),
     /not_found:template/
   );
+});
+
+test("templates upsert creates canonical wave2 template", () => {
+  const { context, spreadsheet } = createHarness();
+  context.setupWorkbook_();
+  const templates = spreadsheet.getSheetByName("TEMPLATES");
+  templates.rows = [templates.rows[0]];
+
+  const result = context.upsertTemplate_("admin@example.com", {
+    template_id: "wave2_update",
+    template_version: "v1",
+    subject: "Quick update for {{first_name}}",
+    body: "{{WAVE2_SPIN_BODY}}",
+    is_active: true
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(sheetRows(spreadsheet, "TEMPLATES")[1][0], "wave2_update");
+  assert.equal(sheetRows(spreadsheet, "TEMPLATES")[1][1], "v1");
+  assert.equal(sheetRows(spreadsheet, "TEMPLATES")[1][3], "{{WAVE2_SPIN_BODY}}");
+});
+
+test("preview requires template existence", () => {
+  const { context, spreadsheet } = createHarness();
+  context.setupWorkbook_();
+  spreadsheet.getSheetByName("SEGMENTS").appendRow([
+    "segment_default","Default","","{}","2026-04-01T15:00:00.000Z","2026-04-01T15:00:00.000Z","TRUE"
+  ]);
+  spreadsheet.getSheetByName("RUNS").appendRow([
+    "run_1","R1","wave2","segment_default","missing_template","v1","draft","admin@example.com","2026-04-01T15:00:00.000Z","","","",
+    0,0,"04:45","23:30",180,360,0,"TRUE","0","0","0","0","0","0","0"
+  ]);
+  assert.throws(() => context.previewRun_("admin@example.com", { run_id: "run_1" }), /not_found:template/);
+});
+
+test("confirm in safe mode does not require ScriptApp trigger permissions", () => {
+  const { context, spreadsheet } = createHarness({
+    properties: { KILL_SWITCH: "1", DEFAULT_DRY_RUN: "1" }
+  });
+  context.setupWorkbook_();
+  context.ScriptApp.getProjectTriggers = () => {
+    throw new Error("forbidden:scriptapp");
+  };
+  spreadsheet.getSheetByName("SEGMENTS").appendRow([
+    "segment_default","Default","","{}","2026-04-01T15:00:00.000Z","2026-04-01T15:00:00.000Z","TRUE"
+  ]);
+  spreadsheet.getSheetByName("TEMPLATES").appendRow([
+    "wave2_update","v1","Subject","Body","2026-04-01T15:00:00.000Z","2026-04-01T15:00:00.000Z","TRUE"
+  ]);
+  spreadsheet.getSheetByName("RUNS").appendRow([
+    "run_1","R1","wave2","segment_default","wave2_update","v1","previewed","admin@example.com","2026-04-01T15:00:00.000Z","","","",
+    0,0,"04:45","23:30",180,360,0,"TRUE","0","0","0","0","0","0","0"
+  ]);
+
+  const response = context.confirmRun_("admin@example.com", {
+    run_id: "run_1",
+    confirmation_text: "CONFIRM R1"
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.run.status, "confirmed");
+  assert.equal(response.run.dry_run, "TRUE");
 });
 
 test("tickAllRuns honors kill switch and does not send", () => {

@@ -39,6 +39,63 @@ async function fetchJson(url, options) {
   }
 }
 
+function getResponseError(response, fallback) {
+  if (!response) return fallback;
+
+  if (response.error === "exception" && response.message) {
+    return response.message;
+  }
+
+  return response.error || response.message || fallback;
+}
+
+function normalizeHealthPayload(payload) {
+  if (!payload || payload.ok !== true) return null;
+
+  return {
+    ...payload,
+    window: {
+      start: payload.window?.start || "-",
+      end: payload.window?.end || "-"
+    },
+    cap: {
+      date_key: payload.cap?.date_key || "",
+      cap_today: payload.cap?.cap_today ?? "-",
+      sent_today: payload.cap?.sent_today ?? "-"
+    }
+  };
+}
+
+function normalizeReadinessReport(report) {
+  if (!report) return null;
+
+  const healthState = report.health?.state
+    ? {
+        ...report.health.state,
+        window: {
+          start: report.health.state.window?.start || "-",
+          end: report.health.state.window?.end || "-"
+        }
+      }
+    : null;
+
+  return {
+    readiness: report.readiness || "blocked",
+    env: {
+      checks: Array.isArray(report.env?.checks) ? report.env.checks : [],
+      missing: Array.isArray(report.env?.missing) ? report.env.missing : [],
+      alias_in_use: Boolean(report.env?.alias_in_use)
+    },
+    health: {
+      checked: Boolean(report.health?.checked),
+      ok: Boolean(report.health?.ok),
+      error: report.health?.error || "",
+      state: healthState
+    },
+    warnings: Array.isArray(report.warnings) ? report.warnings : []
+  };
+}
+
 function StatusBadge({ tone = "muted", children }) {
   const cls =
     tone === "ok" ? "badge badge-ok" : tone === "warn" ? "badge badge-warn" : "badge badge-muted";
@@ -88,10 +145,11 @@ export default function Dashboard() {
 
   async function loadHealth() {
     const health = await fetchJson("/api/health");
+    const normalized = normalizeHealthPayload(health);
     setHealthState({
       loading: false,
-      error: health?.ok ? "" : health?.error || health?.message || "Health request failed.",
-      data: health?.ok ? health : null
+      error: health?.ok ? "" : getResponseError(health, "Health request failed."),
+      data: normalized
     });
   }
 
@@ -99,7 +157,7 @@ export default function Dashboard() {
     const runs = await fetchJson("/api/runs/list");
     setRunsState({
       loading: false,
-      error: runs?.ok ? "" : runs?.error || runs?.message || "Runs request failed.",
+      error: runs?.ok ? "" : getResponseError(runs, "Runs request failed."),
       data: runs?.ok ? runs.runs || [] : []
     });
     return runs;
@@ -109,17 +167,18 @@ export default function Dashboard() {
     const segments = await fetchJson("/api/segments/list");
     setSegmentsState({
       loading: false,
-      error: segments?.ok ? "" : segments?.error || segments?.message || "Segments request failed.",
+      error: segments?.ok ? "" : getResponseError(segments, "Segments request failed."),
       data: segments?.ok ? segments.segments || [] : []
     });
   }
 
   async function loadConfig() {
     const readiness = await fetchJson("/api/config/readiness");
+    const normalized = normalizeReadinessReport(readiness?.report);
     setConfigState({
       loading: false,
-      error: readiness?.ok ? "" : readiness?.error || readiness?.message || "Readiness request failed.",
-      data: readiness?.ok ? readiness.report : null
+      error: readiness?.ok ? "" : getResponseError(readiness, "Readiness request failed."),
+      data: readiness?.ok ? normalized : null
     });
   }
 
@@ -206,7 +265,7 @@ export default function Dashboard() {
     if (!response?.ok) {
       setCreateState({
         loading: false,
-        error: response?.error || response?.message || "Create failed."
+        error: getResponseError(response, "Create failed.")
       });
       return;
     }
@@ -235,7 +294,7 @@ export default function Dashboard() {
     if (!response?.ok) {
       setPreviewState({
         loading: false,
-        error: response?.error || response?.message || "Preview failed.",
+        error: getResponseError(response, "Preview failed."),
         data: null
       });
       return;
@@ -261,7 +320,7 @@ export default function Dashboard() {
     if (!response?.ok) {
       setConfirmState({
         loading: false,
-        error: response?.error || response?.message || "Confirm failed.",
+        error: getResponseError(response, "Confirm failed."),
         data: null
       });
       return;
@@ -284,7 +343,7 @@ export default function Dashboard() {
     if (!response?.ok) {
       setControlState({
         loading: false,
-        error: response?.error || response?.message || `${action} failed.`,
+        error: getResponseError(response, `${action} failed.`),
         action
       });
       return;

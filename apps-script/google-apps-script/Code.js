@@ -131,6 +131,12 @@ function doPost(e) {
       return json_(upsertSegment_(operatorEmail, payload));
     }
 
+    if (route === 'templates/upsert') {
+      assertAdmin_(operatorEmail);
+      verifyBodyHashOrThrow_(payload, bodyHash);
+      return json_(upsertTemplate_(operatorEmail, payload));
+    }
+
     if (route === 'runs/list') {
       assertViewerOrAdmin_(operatorEmail);
       verifyBodyHashOrThrow_(payload, bodyHash);
@@ -335,6 +341,8 @@ function setupWorkbook_() {
   if (!ss.getSheetByName(TABS.NONCE_CACHE)) {
     ss.insertSheet(TABS.NONCE_CACHE);
   }
+
+  ensureWave2Defaults_(ss);
 }
 
 function ensureSheetWithHeaders_(ss, name, headers) {
@@ -356,6 +364,49 @@ function ensureSheetWithHeaders_(ss, name, headers) {
       throw new Error('schema_mismatch:' + name + ':' + headers[i] + '!=' + existing[i]);
     }
   }
+}
+
+function ensureWave2Defaults_(ss) {
+  ensureDefaultSegment_(ss);
+  ensureDefaultTemplate_(ss);
+}
+
+function ensureDefaultSegment_(ss) {
+  var sh = ss.getSheetByName(TABS.SEGMENTS);
+  var rows = sheetToObjects_(sh, HEADERS_SEGMENTS);
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].segment_id === 'segment_default') return;
+  }
+
+  var now = nowIso_();
+  appendObjectRow_(sh, HEADERS_SEGMENTS, {
+    segment_id: 'segment_default',
+    name: 'Default',
+    description: 'Default BBG safe-mode segment',
+    filter_json: '{}',
+    created_at: now,
+    updated_at: now,
+    is_active: 'TRUE'
+  });
+}
+
+function ensureDefaultTemplate_(ss) {
+  var sh = ss.getSheetByName(TABS.TEMPLATES);
+  var rows = sheetToObjects_(sh, HEADERS_TEMPLATES_MIN);
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].template_id === 'wave2_update' && rows[i].template_version === 'v1') return;
+  }
+
+  var now = nowIso_();
+  appendObjectRow_(sh, HEADERS_TEMPLATES_MIN, {
+    template_id: 'wave2_update',
+    template_version: 'v1',
+    subject: 'Quick update for {{first_name}}',
+    body: '{{WAVE2_SPIN_BODY}}',
+    created_at: now,
+    updated_at: now,
+    is_active: 'TRUE'
+  });
 }
 
 // ---------------------------
@@ -414,6 +465,53 @@ function upsertSegment_(operatorEmail, payload) {
   }
 
   return { ok: true, segment: obj };
+}
+
+function upsertTemplate_(operatorEmail, payload) {
+  setupWorkbook_();
+
+  var templateId = (payload.template_id || '').toString();
+  var templateVersion = (payload.template_version || '').toString();
+  var subject = (payload.subject || '').toString();
+  var body = (payload.body || '').toString();
+
+  if (!templateId) throw new Error('bad_request:template_id');
+  if (!templateVersion) throw new Error('bad_request:template_version');
+  if (!subject) throw new Error('bad_request:template_subject');
+  if (!body) throw new Error('bad_request:template_body');
+
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName(TABS.TEMPLATES);
+  var rows = sheetToObjects_(sh, HEADERS_TEMPLATES_MIN);
+  var now = nowIso_();
+  var idx = -1;
+
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].template_id === templateId && rows[i].template_version === templateVersion) {
+      idx = i;
+      break;
+    }
+  }
+
+  var obj = {
+    template_id: templateId,
+    template_version: templateVersion,
+    subject: subject,
+    body: body,
+    created_at: (idx >= 0 && rows[idx].created_at) ? rows[idx].created_at : now,
+    updated_at: now,
+    is_active: (payload.is_active === false || payload.is_active === 'FALSE') ? 'FALSE' : 'TRUE'
+  };
+
+  if (idx >= 0) {
+    writeObjectToRow_(sh, HEADERS_TEMPLATES_MIN, idx + 2, obj);
+    appendEvent_({ run_id: '', contact_id: '', wave_id: '', event_type: 'template_updated', result: 'ok', message: templateId + ':' + templateVersion, details: {} });
+  } else {
+    appendObjectRow_(sh, HEADERS_TEMPLATES_MIN, obj);
+    appendEvent_({ run_id: '', contact_id: '', wave_id: '', event_type: 'template_created', result: 'ok', message: templateId + ':' + templateVersion, details: {} });
+  }
+
+  return { ok: true, template: obj };
 }
 
 // ---------------------------
@@ -506,6 +604,7 @@ function previewRun_(operatorEmail, payload) {
   if (!run) throw new Error('not_found:run');
   if (run.status !== 'draft' && run.status !== 'previewed') throw new Error('invalid_state:preview');
   requireSegmentExistsForRun_(run);
+  requireTemplateExistsForRun_(run);
 
   var eligible = computeEligibleContacts_(run);
 
@@ -549,7 +648,7 @@ function confirmRun_(operatorEmail, payload) {
 
   writeObjectToRow_(sh, HEADERS_RUNS, rowIndex, run);
 
-  ensureTickTrigger_();
+  ensureTickTriggerIfEnabled_();
 
   appendEvent_({ run_id: run.run_id, contact_id: '', wave_id: run.wave_id, event_type: 'run_confirmed', result: 'ok', message: expected, details: { dry_run: run.dry_run } });
 
@@ -569,7 +668,7 @@ function resumeRun_(operatorEmail, payload) {
   var run = getRunByIdOrCode_(payload.run_id, payload.run_code);
   if (!run) throw new Error('not_found:run');
   if (run.status !== 'paused') throw new Error('invalid_state:resume');
-  ensureTickTrigger_();
+  ensureTickTriggerIfEnabled_();
   return updateRunStatus_(run, 'running', 'run_resumed');
 }
 
@@ -1377,6 +1476,11 @@ function ensureTickTrigger_() {
   }
   // V1: one-minute interval
   ScriptApp.newTrigger('tickAllRuns').timeBased().everyMinutes(1).create();
+}
+
+function ensureTickTriggerIfEnabled_() {
+  if (isKillSwitchOn_()) return;
+  ensureTickTrigger_();
 }
 
 // ---------------------------
