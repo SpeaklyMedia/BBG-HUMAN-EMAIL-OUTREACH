@@ -1618,6 +1618,7 @@ function ensureTickTrigger_() {
 
 function ensureTickTriggerIfEnabled_() {
   if (isKillSwitchOn_()) return;
+  if (isDefaultDryRunOn_()) return;
   ensureTickTrigger_();
 }
 

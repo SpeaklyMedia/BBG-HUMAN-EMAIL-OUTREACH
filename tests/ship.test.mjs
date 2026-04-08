@@ -456,6 +456,35 @@ test("confirm in safe mode does not require ScriptApp trigger permissions", () =
   assert.equal(response.run.dry_run, "TRUE");
 });
 
+test("confirm in dry-run mode does not require ScriptApp trigger permissions when kill switch is off", () => {
+  const { context, spreadsheet } = createHarness({
+    properties: { KILL_SWITCH: "0", DEFAULT_DRY_RUN: "1" }
+  });
+  context.setupWorkbook_();
+  context.ScriptApp.getProjectTriggers = () => {
+    throw new Error("forbidden:scriptapp");
+  };
+  spreadsheet.getSheetByName("SEGMENTS").appendRow([
+    "segment_default","Default","","{}","2026-04-01T15:00:00.000Z","2026-04-01T15:00:00.000Z","TRUE"
+  ]);
+  spreadsheet.getSheetByName("TEMPLATES").appendRow([
+    "wave2_update","v1","Subject","Body","2026-04-01T15:00:00.000Z","2026-04-01T15:00:00.000Z","TRUE"
+  ]);
+  spreadsheet.getSheetByName("RUNS").appendRow([
+    "run_1","R1","wave2","segment_default","wave2_update","v1","previewed","admin@example.com","2026-04-01T15:00:00.000Z","","","",
+    0,0,"04:45","23:30",180,360,0,"TRUE","0","0","0","0","0","0","0"
+  ]);
+
+  const response = context.confirmRun_("admin@example.com", {
+    run_id: "run_1",
+    confirmation_text: "CONFIRM R1"
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.run.status, "confirmed");
+  assert.equal(response.run.dry_run, "TRUE");
+});
+
 test("tickAllRuns honors kill switch and does not send", () => {
   const { context, spreadsheet, sentEmails } = createHarness({
     properties: { KILL_SWITCH: "1", DEFAULT_DRY_RUN: "1" }
