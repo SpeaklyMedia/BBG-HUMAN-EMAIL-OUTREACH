@@ -4,6 +4,7 @@ const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_WEBAPP_URL || process.env.APPS_S
 
 const ALLOWED_ROUTES = new Set([
   "/health",
+  "/config/set-flags",
   "/runs/list",
   "/segments/list",
   "/runs/create",
@@ -172,6 +173,7 @@ Resolved Apps Script URL: ${APPS_SCRIPT_URL || "(missing)"}
 
 Usage:
   npm run smoke:apps-script -- health
+  npm run smoke:apps-script -- config:set-flags '{"approval_ticket":"APPROVED-...","reason":"...","kill_switch":false}'
   npm run smoke:apps-script -- runs:list
   npm run smoke:apps-script -- segments:list
   npm run smoke:apps-script -- dry-run-sequence
@@ -198,6 +200,12 @@ async function main() {
 
   if (command === "health") {
     result = await callRoute("/health", {});
+  } else if (command === "config:set-flags") {
+    const rawPayload = process.argv[3];
+    if (!rawPayload) {
+      throw new Error("Missing JSON payload for config:set-flags");
+    }
+    result = await callRoute("/config/set-flags", JSON.parse(rawPayload));
   } else if (command === "runs:list") {
     result = await callRoute("/runs/list", {});
   } else if (command === "segments:list") {

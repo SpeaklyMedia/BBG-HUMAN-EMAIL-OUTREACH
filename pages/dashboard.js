@@ -102,6 +102,59 @@ function StatusBadge({ tone = "muted", children }) {
   return <span className={cls}>{children}</span>;
 }
 
+function deriveRuntimeStatus(health) {
+  if (!health) {
+    return {
+      label: "Status loading",
+      tone: "muted",
+      detail: "Waiting for signed health check."
+    };
+  }
+
+  if (health.kill_switch) {
+    return {
+      label: "Safe mode locked",
+      tone: "ok",
+      detail: "Kill switch is on. No outbound activity can execute."
+    };
+  }
+
+  if (health.default_dry_run) {
+    return {
+      label: "Armed / dry run",
+      tone: "warn",
+      detail: "Kill switch is off, but dry-run remains on."
+    };
+  }
+
+  return {
+    label: "Live send enabled",
+    tone: "danger",
+    detail: "Kill switch is off and dry-run is off."
+  };
+}
+
+function StatusLight({ tone = "muted", label, detail }) {
+  const cls =
+    tone === "ok"
+      ? "status-light status-light-ok"
+      : tone === "warn"
+        ? "status-light status-light-warn"
+        : tone === "danger"
+          ? "status-light status-light-danger"
+          : "status-light status-light-muted";
+
+  return (
+    <div className="status-light-shell">
+      <span className={cls} aria-hidden="true" />
+      <div>
+        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        <p className="text-xs text-slate-600">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
 function DataState({ loading, error, children }) {
   if (loading) {
     return <p className="text-sm text-slate-600">Loading…</p>;
@@ -245,6 +298,7 @@ export default function Dashboard() {
       : configState.data?.readiness === "degraded"
         ? "warn"
         : "muted";
+  const runtimeStatus = deriveRuntimeStatus(healthState.data);
 
   async function handleCreateRun() {
     setCreateState({ loading: true, error: "" });
@@ -400,6 +454,18 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
+                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Runtime Status
+                  </p>
+                  <div className="mt-3">
+                    <StatusLight
+                      tone={runtimeStatus.tone}
+                      label={runtimeStatus.label}
+                      detail={runtimeStatus.detail}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="surface-subtle">
@@ -454,6 +520,15 @@ export default function Dashboard() {
                     <DetailRow
                       label="Daily Cap"
                       value={`${healthState.data.cap.sent_today} / ${healthState.data.cap.cap_today}`}
+                    />
+                  </div>
+                ) : null}
+                {healthState.data ? (
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <StatusLight
+                      tone={runtimeStatus.tone}
+                      label={runtimeStatus.label}
+                      detail={runtimeStatus.detail}
                     />
                   </div>
                 ) : null}

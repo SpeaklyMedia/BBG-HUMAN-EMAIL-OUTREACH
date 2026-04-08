@@ -143,6 +143,12 @@ function doPost(e) {
       return json_(upsertTemplate_(operatorEmail, payload));
     }
 
+    if (route === 'config/set-flags') {
+      assertAdmin_(operatorEmail);
+      verifyBodyHashOrThrow_(payload, bodyHash);
+      return json_(setControlFlags_(operatorEmail, payload));
+    }
+
     if (route === 'runs/list') {
       assertViewerOrAdmin_(operatorEmail);
       verifyBodyHashOrThrow_(payload, bodyHash);
@@ -548,6 +554,55 @@ function upsertSegment_(operatorEmail, payload) {
   }
 
   return { ok: true, segment: obj };
+}
+
+function setControlFlags_(operatorEmail, payload) {
+  var approvalTicket = (payload.approval_ticket || '').toString().trim();
+  var reason = (payload.reason || '').toString().trim();
+  var updates = {};
+  var props = getProps_();
+
+  if (!approvalTicket) throw new Error('bad_request:approval_ticket');
+  if (!reason) throw new Error('bad_request:reason');
+
+  if (payload.kill_switch !== undefined) {
+    updates.KILL_SWITCH = truthy_(payload.kill_switch) ? '1' : '0';
+    props.setProperty('KILL_SWITCH', updates.KILL_SWITCH);
+  }
+
+  if (payload.default_dry_run !== undefined) {
+    updates.DEFAULT_DRY_RUN = truthy_(payload.default_dry_run) ? '1' : '0';
+    props.setProperty('DEFAULT_DRY_RUN', updates.DEFAULT_DRY_RUN);
+  }
+
+  if (!Object.keys(updates).length) {
+    throw new Error('bad_request:no_updates');
+  }
+
+  appendEvent_({
+    run_id: '',
+    contact_id: '',
+    wave_id: '',
+    event_type: 'config_flags_updated',
+    result: 'ok',
+    message: 'control_flags_updated',
+    details: {
+      approval_ticket: approvalTicket,
+      reason: reason,
+      updates: updates,
+      operator_email: operatorEmail
+    }
+  });
+
+  return {
+    ok: true,
+    approval_ticket: approvalTicket,
+    reason: reason,
+    flags: {
+      kill_switch: isKillSwitchOn_(),
+      default_dry_run: isDefaultDryRunOn_()
+    }
+  };
 }
 
 function upsertTemplate_(operatorEmail, payload) {

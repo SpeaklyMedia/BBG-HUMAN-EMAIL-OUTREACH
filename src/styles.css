@@ -161,6 +161,38 @@
     background: rgba(45, 111, 168, 0.08);
     color: hsl(var(--bbg-foreground));
   }
+
+  .status-light-shell {
+    @apply flex items-center gap-3 rounded-xl;
+  }
+
+  .status-light {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 9999px;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 0.25rem rgba(148, 163, 184, 0.15);
+  }
+
+  .status-light-ok {
+    background: #10b981;
+    box-shadow: 0 0 0 0.35rem rgba(16, 185, 129, 0.16), 0 0 18px rgba(16, 185, 129, 0.35);
+  }
+
+  .status-light-warn {
+    background: #f59e0b;
+    box-shadow: 0 0 0 0.35rem rgba(245, 158, 11, 0.18), 0 0 18px rgba(245, 158, 11, 0.35);
+  }
+
+  .status-light-danger {
+    background: #ef4444;
+    box-shadow: 0 0 0 0.35rem rgba(239, 68, 68, 0.18), 0 0 18px rgba(239, 68, 68, 0.32);
+  }
+
+  .status-light-muted {
+    background: #94a3b8;
+    box-shadow: 0 0 0 0.35rem rgba(148, 163, 184, 0.16);
+  }
 }
 
 @layer utilities {

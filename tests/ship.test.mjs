@@ -380,6 +380,40 @@ test("contacts upsert creates an eligible wave2-ready contact row", () => {
   assert.equal(sheetRows(spreadsheet, "CONTACTS")[1][17], "ready");
 });
 
+test("config flag updates require approval metadata and persist control flags", () => {
+  const { context, spreadsheet, properties } = createHarness({
+    properties: { KILL_SWITCH: "1", DEFAULT_DRY_RUN: "1" }
+  });
+  context.setupWorkbook_();
+
+  const result = context.setControlFlags_("admin@example.com", {
+    approval_ticket: "APPROVED-20260407-001",
+    reason: "Authorized first live window",
+    kill_switch: false
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.flags.kill_switch, false);
+  assert.equal(result.flags.default_dry_run, true);
+  assert.equal(properties.get("KILL_SWITCH"), "0");
+
+  const eventRows = sheetRows(spreadsheet, "EVENT_LOG");
+  assert.equal(eventRows[eventRows.length - 1][5], "config_flags_updated");
+});
+
+test("config flag updates reject unsigned intent without approval metadata", () => {
+  const { context } = createHarness();
+  context.setupWorkbook_();
+
+  assert.throws(
+    () => context.setControlFlags_("admin@example.com", {
+      reason: "Missing approval ticket",
+      kill_switch: false
+    }),
+    /bad_request:approval_ticket/
+  );
+});
+
 test("preview requires template existence", () => {
   const { context, spreadsheet } = createHarness();
   context.setupWorkbook_();
