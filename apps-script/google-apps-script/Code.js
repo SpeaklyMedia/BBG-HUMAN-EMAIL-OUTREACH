@@ -125,6 +125,12 @@ function doPost(e) {
       return json_({ ok: true, segments: listSegments_() });
     }
 
+    if (route === 'contacts/upsert') {
+      assertAdmin_(operatorEmail);
+      verifyBodyHashOrThrow_(payload, bodyHash);
+      return json_(upsertContact_(operatorEmail, payload));
+    }
+
     if (route === 'segments/upsert') {
       assertAdmin_(operatorEmail);
       verifyBodyHashOrThrow_(payload, bodyHash);
@@ -419,6 +425,83 @@ function listSegments_() {
   var sh = ss.getSheetByName(TABS.SEGMENTS);
   var rows = sheetToObjects_(sh, HEADERS_SEGMENTS);
   return rows.filter(function(r){ return String(r.is_active).toLowerCase() !== 'false'; });
+}
+
+function upsertContact_(operatorEmail, payload) {
+  setupWorkbook_();
+
+  var contactId = (payload.contact_id || '').toString().trim();
+  var email = (payload.email || '').toString().trim();
+  var firstName = (payload.first_name || '').toString().trim();
+  var lastName = (payload.last_name || '').toString().trim();
+  var company = (payload.company || '').toString().trim();
+  var title = (payload.title || '').toString().trim();
+  var segmentTags = (payload.segment_tags || '').toString().trim();
+  var source = (payload.source || 'manual_seed').toString().trim();
+  var sourceImportId = (payload.source_import_id || 'seed_manual').toString().trim();
+  var wave2Status = (payload.wave2_status || 'ready').toString().trim();
+  var now = nowIso_();
+
+  if (!contactId) throw new Error('bad_request:contact_id');
+  if (!email) throw new Error('bad_request:email');
+  if (!firstName) throw new Error('bad_request:first_name');
+  if (!CONTACT_STATUS_ENUM[wave2Status]) throw new Error('bad_request:wave2_status');
+
+  var emailNorm = email.toLowerCase().trim();
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName(TABS.CONTACTS);
+  var rows = sheetToObjects_(sh, HEADERS_CONTACTS);
+  var idx = -1;
+
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].contact_id === contactId) {
+      idx = i;
+      break;
+    }
+  }
+
+  var prev = idx >= 0 ? rows[idx] : {};
+  var obj = {
+    contact_id: contactId,
+    email: email,
+    email_norm: emailNorm,
+    first_name: firstName,
+    last_name: lastName,
+    company: company,
+    title: title,
+    segment_tags: segmentTags,
+    source: source,
+    source_import_id: sourceImportId,
+    created_at: prev.created_at || now,
+    updated_at: now,
+    wave1_status: prev.wave1_status || '',
+    wave1_run_id: prev.wave1_run_id || '',
+    wave1_last_attempt_at: prev.wave1_last_attempt_at || '',
+    wave1_sent_at: prev.wave1_sent_at || '',
+    wave1_message_token: prev.wave1_message_token || '',
+    wave2_status: wave2Status,
+    wave2_run_id: prev.wave2_run_id || '',
+    wave2_last_attempt_at: prev.wave2_last_attempt_at || '',
+    wave2_sent_at: prev.wave2_sent_at || '',
+    wave2_message_token: prev.wave2_message_token || '',
+    has_replied: prev.has_replied || '',
+    opted_out: prev.opted_out || '',
+    bounced: prev.bounced || '',
+    suppressed_reason: prev.suppressed_reason || '',
+    suppressed_at: prev.suppressed_at || '',
+    last_idempotency_key: prev.last_idempotency_key || '',
+    last_idempotency_key_at: prev.last_idempotency_key_at || ''
+  };
+
+  if (idx >= 0) {
+    writeObjectToRow_(sh, HEADERS_CONTACTS, idx + 2, obj);
+    appendEvent_({ run_id: '', contact_id: contactId, wave_id: 'wave2', event_type: 'contact_updated', result: 'ok', message: contactId, details: { source: source } });
+  } else {
+    appendObjectRow_(sh, HEADERS_CONTACTS, obj);
+    appendEvent_({ run_id: '', contact_id: contactId, wave_id: 'wave2', event_type: 'contact_created', result: 'ok', message: contactId, details: { source: source } });
+  }
+
+  return { ok: true, contact: obj };
 }
 
 function upsertSegment_(operatorEmail, payload) {

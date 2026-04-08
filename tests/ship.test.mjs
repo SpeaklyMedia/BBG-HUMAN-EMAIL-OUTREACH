@@ -358,6 +358,28 @@ test("templates upsert creates canonical wave2 template", () => {
   assert.equal(sheetRows(spreadsheet, "TEMPLATES")[1][3], "{{WAVE2_SPIN_BODY}}");
 });
 
+test("contacts upsert creates an eligible wave2-ready contact row", () => {
+  const { context, spreadsheet } = createHarness();
+  context.setupWorkbook_();
+  const contacts = spreadsheet.getSheetByName("CONTACTS");
+  contacts.rows = [contacts.rows[0]];
+
+  const result = context.upsertContact_("admin@example.com", {
+    contact_id: "contact_test_001",
+    email: "you+bbgtest1@example.com",
+    first_name: "Alex",
+    source: "manual_seed",
+    source_import_id: "seed_20260407",
+    wave2_status: "ready"
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(sheetRows(spreadsheet, "CONTACTS")[1][0], "contact_test_001");
+  assert.equal(sheetRows(spreadsheet, "CONTACTS")[1][1], "you+bbgtest1@example.com");
+  assert.equal(sheetRows(spreadsheet, "CONTACTS")[1][2], "you+bbgtest1@example.com");
+  assert.equal(sheetRows(spreadsheet, "CONTACTS")[1][17], "ready");
+});
+
 test("preview requires template existence", () => {
   const { context, spreadsheet } = createHarness();
   context.setupWorkbook_();
